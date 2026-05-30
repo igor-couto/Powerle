@@ -1,0 +1,114 @@
+name: CI/CD - Powerle
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "README.md"
+      - "CODE_OF_CONDUCT.md"
+      - "SECURITY.md"
+      - "LICENCE.md"
+      - "docs/**"
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: 10.0.x
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/powerle
+  IMAGE_TAG: latest
+  APP_PORT: 50060
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          include-prerelease: true
+
+      - name: Restore dependencies
+        run: dotnet restore EnergySourceGame.csproj
+
+      - name: Build project
+        run: dotnet build EnergySourceGame.csproj --no-restore --configuration Release
+
+  docker_image:
+    name: Build and Push Docker Image
+    needs: build
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push Docker image (ARM64)
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          docker build \
+            --platform linux/arm64 \
+            -f Dockerfile \
+            -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            --push \
+            .
+
+  deploy:
+    name: Deploy to Server
+    needs: docker_image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          SSH_PORT=${SSH_PORT:-22}
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+        shell: bash
+
+      - name: Pull and run container on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          SSH_PORT=${SSH_PORT:-22}
+
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
+            set -e
+
+            APP_ROOT=/home/$SSH_USER/apps/powerle
+            mkdir -p \$APP_ROOT
+
+            echo 'Logging in to GHCR...'
+            echo '${{ secrets.GITHUB_TOKEN }}' | sudo docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+
+            echo 'Pulling latest image...'
+            sudo docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+            echo 'Stopping and removing existing container...'
+            sudo docker rm -f powerle || true
+
+            echo 'Starting new container...'
+            sudo docker run -d \
+              --name powerle \
+              --restart=always \
+              -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
+              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          "
+        shell: bash
