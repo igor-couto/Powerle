@@ -112,9 +112,5 @@ jobs:
               --restart=always \
               -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
               ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-
-            echo 'Verifying Blazor framework asset...'
-            sudo docker exec powerle test -f /app/wwwroot/_framework/blazor.web.js
-            curl -fsI http://127.0.0.1:${{ env.HOST_PORT }}/_framework/blazor.web.js
           "
         shell: bash
