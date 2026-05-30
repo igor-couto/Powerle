@@ -14,7 +14,7 @@ on:
 env:
   DOTNET_VERSION: 10.0.x
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/powerle
-  IMAGE_TAG: latest
+  IMAGE_TAG: ${{ github.sha }}
   HOST_PORT: 50160
   CONTAINER_PORT: 50060
 
@@ -62,6 +62,7 @@ jobs:
             --platform linux/arm64 \
             -f Dockerfile \
             -t ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            -t ${{ env.IMAGE_NAME }}:latest \
             --push \
             .
 
@@ -111,5 +112,9 @@ jobs:
               --restart=always \
               -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
               ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+            echo 'Verifying Blazor framework asset...'
+            sudo docker exec powerle test -f /app/wwwroot/_framework/blazor.web.js
+            curl -fsI http://127.0.0.1:${{ env.HOST_PORT }}/_framework/blazor.web.js
           "
         shell: bash
