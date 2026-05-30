@@ -15,7 +15,8 @@ env:
   DOTNET_VERSION: 10.0.x
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/powerle
   IMAGE_TAG: latest
-  APP_PORT: 50060
+  HOST_PORT: 50070
+  CONTAINER_PORT: 50060
 
 jobs:
   build:
@@ -108,7 +109,7 @@ jobs:
             sudo docker run -d \
               --name powerle \
               --restart=always \
-              -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
+              -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
               ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           "
         shell: bash
