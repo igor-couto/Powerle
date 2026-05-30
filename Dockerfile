@@ -3,7 +3,7 @@ RUN apk add --no-cache icu-libs
 WORKDIR /src
 
 COPY EnergySourceGame.csproj ./
-RUN dotnet restore EnergySourceGame.csproj --disable-parallel --runtime linux-musl-arm64
+RUN dotnet restore EnergySourceGame.csproj --disable-parallel --runtime linux-musl-arm64 /p:PublishReadyToRun=true
 
 COPY . ./
 
