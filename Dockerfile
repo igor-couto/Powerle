@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.8-alpine3.23-arm64v8 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine3.23-arm64v8 AS build
 RUN apk add --no-cache icu-libs
 WORKDIR /src
 
@@ -9,7 +9,7 @@ COPY . ./
 
 RUN dotnet publish EnergySourceGame.csproj -c Release -o /app/publish --no-restore --runtime linux-musl-arm64 --self-contained true /p:PublishReadyToRun=true
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.8-alpine3.23-arm64v8 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine3.23-arm64v8 AS final
 RUN apk add --no-cache icu-libs
 WORKDIR /app
 
