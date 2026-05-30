@@ -109,7 +109,7 @@ jobs:
             sudo docker run -d \
               --name powerle \
               --restart=always \
-              -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
+              -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
               ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           "
         shell: bash
