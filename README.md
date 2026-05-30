@@ -54,3 +54,9 @@ When adding or updating countries, keep source names aligned with `Models/Energy
 - Game state is stored in protected browser local storage for the current UTC day.
 - The puzzle resets automatically when the UTC date changes.
 - Guess evaluation is handled by backend service logic, separate from the Razor UI.
+
+## Author
+
+Feel free to get in touch with me regarding any questions or issues
+
+* **Igor Couto** - [igor.fcouto@gmail.com](mailto:igor.fcouto@gmail.com)
