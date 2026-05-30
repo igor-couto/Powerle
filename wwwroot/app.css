@@ -1,0 +1,307 @@
+:root {
+    --bg: #0f1419;
+    --card: #1b2430;
+    --card-2: #232f3e;
+    --text: #e8edf2;
+    --muted: #9aa7b4;
+    --accent: #f4c20d;
+    --accent-text: #f4c20d;
+    --good: #2ecc71;
+    --bad: #e74c3c;
+    --border: #2e3a48;
+}
+
+[data-theme="light"] {
+    --bg: #eef1f5;
+    --card: #ffffff;
+    --card-2: #f1f4f8;
+    --text: #1a222c;
+    --muted: #5b6b7a;
+    --accent: #b8860b;
+    --accent-text: #8a6400;
+    --good: #18834a;
+    --bad: #c0392b;
+    --border: #d6dde4;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+}
+
+a { color: var(--accent); }
+
+.app-main {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 1.5rem 1rem 4rem;
+}
+
+.game {
+    position: relative;
+    width: 100%;
+    max-width: 540px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem 1.5rem 1rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.help-btn {
+    position: absolute;
+    top: 1.1rem;
+    right: 1.1rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-2);
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+}
+.help-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.theme-btn {
+    position: absolute;
+    top: 1.1rem;
+    left: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-2);
+    color: var(--text);
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.theme-btn:hover { border-color: var(--accent); }
+
+.game-header { text-align: center; }
+.game-header h1 { margin: 0; font-size: 2rem; letter-spacing: 0.5px; }
+.tagline { margin: 0.35rem 0 1rem; color: var(--muted); font-size: 0.95rem; }
+
+/* Chart */
+.chart { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.chart svg { display: block; }
+.chart-center { font-size: 1.7rem; fill: var(--accent-text); }
+
+.legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem 0.9rem;
+    max-width: 360px;
+}
+.legend li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend-source { color: var(--text); }
+.legend-pct { color: var(--muted); }
+
+.chart-caption {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0.25rem 0 1.25rem;
+}
+
+/* Guesses */
+.guesses { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1rem; }
+.guess-row {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr auto auto auto;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.92rem;
+}
+.guess-row.correct {
+    border-color: var(--good);
+    background: rgba(46, 204, 113, 0.12);
+}
+.guess-flag { font-size: 1.2rem; }
+.guess-name { font-weight: 600; }
+.guess-distance { color: var(--muted); font-variant-numeric: tabular-nums; }
+.guess-arrow { font-size: 1.15rem; }
+.guess-proximity { font-weight: 700; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.guess-correct { grid-column: 3 / -1; text-align: right; color: var(--good); font-weight: 700; }
+.guess-continent {
+    grid-column: 2 / -1;
+    font-size: 0.78rem;
+    color: var(--bad);
+}
+.guess-continent.same { color: var(--good); }
+
+/* Input */
+.guess-input { display: flex; gap: 0.5rem; }
+.guess-input input {
+    flex: 1;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 0.7rem 0.85rem;
+    font-size: 1rem;
+}
+.guess-input input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.btn-guess {
+    background: var(--accent);
+    color: #1a1a1a;
+    border: none;
+    border-radius: 10px;
+    padding: 0 1.2rem;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+}
+.btn-guess:hover { filter: brightness(1.05); }
+
+.remaining { color: var(--muted); font-size: 0.85rem; margin: 0.6rem 0 0; text-align: center; }
+.error { color: var(--bad); text-align: center; margin: 0.5rem 0 0; }
+.loading { text-align: center; color: var(--muted); }
+
+/* Result */
+.result {
+    margin-top: 0.5rem;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+}
+.result h2 { margin: 0.2rem 0; }
+.result.won h2 { color: var(--good); }
+.result.lost h2 { color: var(--bad); }
+
+.btn-share {
+    background: var(--good);
+    color: #08230f;
+    border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.3rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    margin: 0.6rem 0;
+}
+.btn-share:hover { filter: brightness(1.05); }
+
+.share-grid {
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.7rem;
+    font-size: 1.1rem;
+    line-height: 1.35;
+    margin: 0.4rem auto 0.8rem;
+    display: block;
+    width: fit-content;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+}
+.countdown { color: var(--muted); font-size: 0.9rem; }
+.countdown strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.game-footer {
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+}
+.game-footer p { color: var(--muted); font-size: 0.75rem; text-align: center; margin: 0; }
+
+@media (max-width: 420px) {
+    .guess-row { grid-template-columns: 1.4rem 1fr auto; }
+    .guess-distance, .guess-arrow { grid-row: 2; }
+}
+
+/* How-to-play modal */
+.help-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 2000;
+}
+.help-modal-overlay:focus { outline: none; }
+.help-modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    max-width: 460px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem 1.5rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.help-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.help-modal-head h2 { margin: 0; font-size: 1.4rem; }
+.help-modal-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+}
+.help-modal-close:hover { color: var(--text); }
+.help-modal-body p { color: var(--text); line-height: 1.5; }
+.rules { padding-left: 1.1rem; margin: 0.5rem 0; }
+.rules li { margin: 0.35rem 0; color: var(--text); line-height: 1.45; }
+.rules-subhead { color: var(--muted); margin-bottom: 0.25rem; font-size: 0.9rem; }
+.hint-key { list-style: none; padding-left: 0; margin: 0.5rem 0; }
+.hint-key li { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.4rem 0; color: var(--text); line-height: 1.45; }
+.hint-ico { font-size: 1.1rem; width: 1.6rem; text-align: center; flex: none; }
+.example { margin-top: 1rem; }
+.ex-label { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 0.35rem; }
+.help-modal-go { width: 100%; margin-top: 1.25rem; padding: 0.7rem; }
+
+/* Blazor framework error UI */
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem 1rem 1rem 1rem;
+    color: white;
+}
+.blazor-error-boundary::after { content: "An error has occurred."; }
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    color: #000;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}

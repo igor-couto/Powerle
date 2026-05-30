@@ -1,0 +1,103 @@
+@using System.Globalization
+@using EnergySourceGame.Models
+
+<div class="chart">
+    <svg viewBox="0 0 @F(Size) @F(Size)" width="@F(Size)" height="@F(Size)" role="img"
+         aria-label="Electricity generation mix">
+        @if (_segments.Count == 1)
+        {
+            var only = _segments[0];
+            <circle cx="@F(Center)" cy="@F(Center)" r="@F((Outer + Inner) / 2)"
+                    fill="none" stroke="@only.Color" stroke-width="@F(Outer - Inner)" />
+        }
+        else
+        {
+            @foreach (var seg in _segments)
+            {
+                <path d="@seg.Path" fill="@seg.Color">
+                    <title>@seg.Source — @seg.Label</title>
+                </path>
+            }
+        }
+        <text x="@F(Center)" y="@F(Center)" text-anchor="middle" dominant-baseline="central"
+              class="chart-center">⚡</text>
+    </svg>
+
+    <ul class="legend">
+        @foreach (var seg in _segments)
+        {
+            <li>
+                <span class="swatch" style="background:@seg.Color"></span>
+                <span class="legend-source">@seg.Source</span>
+                <span class="legend-pct">@seg.Label</span>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<EnergySlice> Mix { get; set; } = Array.Empty<EnergySlice>();
+    [Parameter] public double Size { get; set; } = 260;
+
+    private double Center => Size / 2;
+    private double Outer => Size / 2 - 4;
+    private double Inner => Outer * 0.58;
+
+    private List<Segment> _segments = new();
+
+    protected override void OnParametersSet()
+    {
+        _segments = BuildSegments();
+    }
+
+    private List<Segment> BuildSegments()
+    {
+        var slices = Mix
+            .Where(s => s.Percent > 0)
+            .OrderBy(s => EnergyPalette.OrderOf(s.Source))
+            .ToList();
+
+        var total = slices.Sum(s => s.Percent);
+        var result = new List<Segment>();
+        if (total <= 0)
+            return result;
+
+        var angle = -90.0; // start at the top
+        foreach (var slice in slices)
+        {
+            var sweep = 360.0 * (slice.Percent / total);
+            var path = ArcPath(angle, angle + sweep);
+            result.Add(new Segment(
+                Path: path,
+                Color: EnergyPalette.ColorFor(slice.Source),
+                Source: slice.Source,
+                Label: $"{Math.Round(slice.Percent)}%"));
+            angle += sweep;
+        }
+        return result;
+    }
+
+    private string ArcPath(double startDeg, double endDeg)
+    {
+        var (x0, y0) = Polar(Outer, startDeg);
+        var (x1, y1) = Polar(Outer, endDeg);
+        var (x2, y2) = Polar(Inner, endDeg);
+        var (x3, y3) = Polar(Inner, startDeg);
+        var largeArc = (endDeg - startDeg) > 180 ? 1 : 0;
+
+        return $"M {F(x0)} {F(y0)} " +
+               $"A {F(Outer)} {F(Outer)} 0 {largeArc} 1 {F(x1)} {F(y1)} " +
+               $"L {F(x2)} {F(y2)} " +
+               $"A {F(Inner)} {F(Inner)} 0 {largeArc} 0 {F(x3)} {F(y3)} Z";
+    }
+
+    private (double X, double Y) Polar(double radius, double angleDeg)
+    {
+        var rad = angleDeg * Math.PI / 180.0;
+        return (Center + radius * Math.Cos(rad), Center + radius * Math.Sin(rad));
+    }
+
+    private static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+
+    private sealed record Segment(string Path, string Color, string Source, string Label);
+}

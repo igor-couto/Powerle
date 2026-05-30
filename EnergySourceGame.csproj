@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Ship the puzzle data with the app but keep it out of wwwroot so the answer isn't publicly downloadable. -->
+    <Content Update="Data\countries.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

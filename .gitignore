@@ -1,0 +1,40 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+TestResults/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# VS Code local workspace state
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ASP.NET and local configuration
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.*
+
+# Logs and diagnostics
+*.log
+*.trace
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini

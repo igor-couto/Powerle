@@ -1,0 +1,73 @@
+@if (Visible)
+{
+    <div class="help-modal-overlay" @onclick="OnClose" @onkeydown="HandleKey" tabindex="-1" @ref="_overlay">
+        <div class="help-modal" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-label="How to play">
+            <div class="help-modal-head">
+                <h2>How to play</h2>
+                <button class="help-modal-close" @onclick="OnClose" aria-label="Close">✕</button>
+            </div>
+
+            <div class="help-modal-body">
+                <p>Guess the hidden <strong>country</strong> from its electricity generation mix shown in the chart.</p>
+
+                <ul class="rules">
+                    <li>A new country every day — the same one for everyone, changing at <strong>00:00 UTC</strong>.</li>
+                    <li>You have <strong>@MaxGuesses guesses</strong>. Start typing and pick a country from the list.</li>
+                </ul>
+
+                <p class="rules-subhead">After each guess you'll see hints:</p>
+                <ul class="hint-key">
+                    <li><span class="hint-ico">📏</span> <span><strong>Distance</strong> from your guess to the answer</span></li>
+                    <li><span class="hint-ico">➡️</span> <span><strong>Direction</strong> pointing toward the answer</span></li>
+                    <li><span class="hint-ico">🎯</span> <span><strong>Proximity</strong> 100% means you found it</span></li>
+                    <li><span class="hint-ico">🌍</span> <span><strong>Continent</strong> ✓ if it's on the same continent</span></li>
+                </ul>
+
+                <div class="example">
+                    <span class="ex-label">Example guess</span>
+                    <div class="guess-row">
+                        <span class="guess-flag">🇫🇷</span>
+                        <span class="guess-name">France</span>
+                        <span class="guess-distance">9,200 km</span>
+                        <span class="guess-arrow">↘</span>
+                        <span class="guess-proximity">54%</span>
+                        <span class="guess-continent same">✓ continent</span>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-guess help-modal-go" @onclick="OnClose">Got it</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public int MaxGuesses { get; set; } = 6;
+
+    private ElementReference _overlay;
+    private bool _focused;
+
+    protected override void OnParametersSet()
+    {
+        if (!Visible)
+            _focused = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Focus the overlay when it opens so Escape (which bubbles up) closes it.
+        if (Visible && !_focused)
+        {
+            _focused = true;
+            try { await _overlay.FocusAsync(); } catch { }
+        }
+    }
+
+    private async Task HandleKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            await OnClose.InvokeAsync();
+    }
+}

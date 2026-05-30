@@ -1,0 +1,336 @@
+@page "/"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject DailyPuzzleService Puzzle
+@inject CountryRepository Repo
+@inject ProtectedLocalStorage Store
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Powerle — guess the country by its energy mix</PageTitle>
+
+<div class="game">
+    <button class="theme-btn" @onclick="ToggleTheme" aria-label="Toggle light or dark theme" title="Toggle theme">@(_theme == "light" ? "🌙" : "☀️")</button>
+    <button class="help-btn" @onclick="OpenHelp" aria-label="How to play" title="How to play">?</button>
+
+    <header class="game-header">
+        <h1>Powerle</h1>
+        <p class="tagline">A country is hidden behind its electricity mix. You have @MaxGuesses guesses.</p>
+    </header>
+
+    <DoughnutChart Mix="_target.Mix" />
+    <p class="chart-caption">Share of electricity generation by source</p>
+
+    @if (_loaded)
+    {
+        <div class="guesses">
+            @foreach (var g in _guesses)
+            {
+                <div class="guess-row @(g.IsCorrect ? "correct" : "")">
+                    <span class="guess-flag">@Game.FlagEmoji(g.Iso2)</span>
+                    <span class="guess-name">@g.CountryName</span>
+                    @if (g.IsCorrect)
+                    {
+                        <span class="guess-correct">Correct! 🎉</span>
+                    }
+                    else
+                    {
+                        <span class="guess-distance">@FormatKm(g.DistanceKm)</span>
+                        <span class="guess-arrow" title="Direction to the target">@g.DirectionArrow</span>
+                        <span class="guess-proximity">@g.ProximityPercent%</span>
+                        <span class="guess-continent @(g.SameContinent ? "same" : "")"
+                              title="@(g.SameContinent ? "Same continent" : "Different continent")">
+                            @(g.SameContinent ? "✓ continent" : "✗ continent")
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (!_finished)
+        {
+            <div class="guess-input">
+                <input list="country-list" placeholder="Type a country…" @bind="_input"
+                       @bind:event="oninput" @onkeydown="OnKeyDown" autocomplete="off" />
+                <datalist id="country-list">
+                    @foreach (var name in Repo.Names)
+                    {
+                        <option value="@name" />
+                    }
+                </datalist>
+                <button class="btn-guess" @onclick="Submit">Guess</button>
+            </div>
+            <p class="remaining">@(MaxGuesses - _guesses.Count) guesses left</p>
+            @if (_error is not null)
+            {
+                <p class="error">@_error</p>
+            }
+        }
+        else
+        {
+            <div class="result @(_won ? "won" : "lost")">
+                @if (_won)
+                {
+                    <h2>You got it!</h2>
+                    <p>Today's country was <strong>@Game.FlagEmoji(_target.Iso2) @_target.Name</strong>,
+                       solved in @_guesses.Count/@MaxGuesses.</p>
+                }
+                else
+                {
+                    <h2>Out of guesses</h2>
+                    <p>Today's country was <strong>@Game.FlagEmoji(_target.Iso2) @_target.Name</strong>.</p>
+                }
+
+                <button class="btn-share" @onclick="Copy">@_shareLabel</button>
+                <pre class="share-grid">@ShareText()</pre>
+
+                <p class="countdown">Next country in <strong>@(_untilNext.ToString("hh\\:mm\\:ss"))</strong> (00:00 UTC)</p>
+            </div>
+        }
+    }
+    else
+    {
+        <p class="loading">Loading today's puzzle…</p>
+    }
+
+    <footer class="game-footer">
+        <p>Energy figures are approximate shares of electricity generation, for guessing fun, not official statistics.</p>
+    </footer>
+</div>
+
+<HelpModal Visible="_showHelp" OnClose="CloseHelp" MaxGuesses="MaxGuesses" />
+
+@code {
+    private const int MaxGuesses = 6;
+    private const string StorageKey = "powerle-state";
+    private const string HelpSeenKey = "powerle-help-seen";
+
+    private Country _target = default!;
+    private DateOnly _day;
+    private string _input = "";
+    private readonly List<GuessResult> _guesses = new();
+    private bool _won;
+    private bool _finished;
+    private bool _loaded;
+    private bool _showHelp;
+    private string _theme = "dark";
+    private string? _error;
+    private string _shareLabel = "Share result";
+    private TimeSpan _untilNext;
+    private Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        _day = Puzzle.TodayUtc;
+        _target = Puzzle.Today;
+        _untilNext = DailyPuzzleService.TimeUntilNextPuzzle();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await LoadProgressAsync();
+        await MaybeShowHelpAsync();
+        _theme = await GetCurrentThemeAsync();
+        _loaded = true;
+        _timer = new Timer(OnTick, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        StateHasChanged();
+    }
+
+    private void OpenHelp() => _showHelp = true;
+
+    private void CloseHelp() => _showHelp = false;
+
+    private async Task<string> GetCurrentThemeAsync()
+    {
+        // The inline script in App.razor sets data-theme before paint; read it back to sync the toggle icon.
+        try
+        {
+            var t = await JS.InvokeAsync<string?>("document.documentElement.getAttribute", "data-theme");
+            return t == "light" ? "light" : "dark";
+        }
+        catch
+        {
+            return "dark";
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        _theme = _theme == "light" ? "dark" : "light";
+        try
+        {
+            await JS.InvokeVoidAsync("document.documentElement.setAttribute", "data-theme", _theme);
+            await JS.InvokeVoidAsync("localStorage.setItem", "powerle-theme", _theme);
+        }
+        catch
+        {
+            // Theme is cosmetic; ignore interop failures.
+        }
+    }
+
+    private async Task MaybeShowHelpAsync()
+    {
+        // Auto-open the rules the first time a player visits.
+        try
+        {
+            var seen = await Store.GetAsync<bool>(HelpSeenKey);
+            if (!seen.Success || !seen.Value)
+            {
+                _showHelp = true;
+                await Store.SetAsync(HelpSeenKey, true);
+            }
+        }
+        catch
+        {
+            // Storage unavailable — not worth blocking the game over the help popup.
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter")
+            await Submit();
+    }
+
+    private async Task Submit()
+    {
+        _error = null;
+        var name = _input?.Trim() ?? "";
+        if (name.Length == 0)
+            return;
+
+        var guess = Repo.Find(name);
+        if (guess is null)
+        {
+            _error = $"\"{name}\" isn't in the country list.";
+            return;
+        }
+        if (_guesses.Any(g => string.Equals(g.CountryName, guess.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            _error = "You already guessed that one.";
+            return;
+        }
+
+        var result = Game.Evaluate(guess, _target);
+        _guesses.Add(result);
+        _input = "";
+
+        if (result.IsCorrect)
+        {
+            _won = true;
+            _finished = true;
+        }
+        else if (_guesses.Count >= MaxGuesses)
+        {
+            _finished = true;
+        }
+
+        await SaveProgressAsync();
+    }
+
+    private async Task Copy()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", ShareText());
+            _shareLabel = "Copied!";
+        }
+        catch
+        {
+            _shareLabel = "Copy failed — select the text below";
+        }
+    }
+
+    private void OnTick(object? state)
+    {
+        InvokeAsync(async () =>
+        {
+            // Roll over to the new puzzle the moment the UTC day changes.
+            if (Puzzle.TodayUtc != _day)
+            {
+                _day = Puzzle.TodayUtc;
+                _target = Puzzle.Today;
+                _guesses.Clear();
+                _won = false;
+                _finished = false;
+                _error = null;
+                _shareLabel = "Share result";
+                await SaveProgressAsync();
+            }
+
+            _untilNext = DailyPuzzleService.TimeUntilNextPuzzle();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadProgressAsync()
+    {
+        try
+        {
+            var stored = await Store.GetAsync<SavedState>(StorageKey);
+            if (!stored.Success || stored.Value is null)
+                return;
+
+            var saved = stored.Value;
+            if (saved.Day != _day.ToString("yyyy-MM-dd"))
+                return; // progress is from a previous day — start fresh
+
+            foreach (var guessName in saved.Guesses)
+            {
+                var country = Repo.Find(guessName);
+                if (country is not null)
+                    _guesses.Add(Game.Evaluate(country, _target));
+            }
+
+            _won = _guesses.Any(g => g.IsCorrect);
+            _finished = _won || _guesses.Count >= MaxGuesses;
+        }
+        catch
+        {
+            // Corrupt/unavailable storage just means a fresh start.
+        }
+    }
+
+    private async Task SaveProgressAsync()
+    {
+        var saved = new SavedState(
+            _day.ToString("yyyy-MM-dd"),
+            _guesses.Select(g => g.CountryName).ToList(),
+            _finished,
+            _won);
+        try
+        {
+            await Store.SetAsync(StorageKey, saved);
+        }
+        catch
+        {
+            // Non-fatal: the game still works for this session without persistence.
+        }
+    }
+
+    private string ShareText()
+    {
+        var header = $"Powerle #{Puzzle.PuzzleNumber(_day)} {(_won ? _guesses.Count.ToString() : "X")}/{MaxGuesses}";
+        var rows = _guesses.Select(BuildShareRow);
+        return string.Join("\n", new[] { header }.Concat(rows));
+    }
+
+    private static string BuildShareRow(GuessResult g)
+    {
+        if (g.IsCorrect)
+            return "🟩🟩🟩🟩🟩 🎉";
+
+        var greens = (int)Math.Round(g.ProximityPercent / 20.0);
+        var squares = string.Concat(Enumerable.Range(0, 5).Select(i => i < greens ? "🟩" : "⬜"));
+        return $"{squares} {g.DirectionArrow}";
+    }
+
+    private static string FormatKm(double km) => $"{Math.Round(km):N0} km";
+
+    public void Dispose() => _timer?.Dispose();
+
+    private sealed record SavedState(string Day, List<string> Guesses, bool Finished, bool Won);
+}
