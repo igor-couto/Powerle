@@ -1,6 +1,10 @@
 # Powerle
 
+[![CI/CD - Powerle](https://github.com/igor-couto/Powerle/actions/workflows/deploy.yml/badge.svg)](https://github.com/igor-couto/Powerle/actions/workflows/deploy.yml)
+
 Powerle is a daily country guessing game. A hidden country is represented by its electricity generation mix, and players have six guesses to identify it.
+
+![Powerle preview](docs/preview.png)
 
 After each guess, the game gives geographic hints:
 
