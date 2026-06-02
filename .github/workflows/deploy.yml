@@ -11,12 +11,17 @@ on:
       - "docs/**"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   DOTNET_VERSION: 10.0.x
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/powerle
   IMAGE_TAG: ${{ github.sha }}
   HOST_PORT: 50160
   CONTAINER_PORT: 50060
+  SMOKE_PORT: 60160
 
 jobs:
   build:
@@ -39,6 +44,18 @@ jobs:
 
       - name: Build project
         run: dotnet build EnergySourceGame.csproj --no-restore --configuration Release
+
+      - name: Run tests
+        run: |
+          mapfile -t test_projects < <(find . -type f \( -name "*Tests.csproj" -o -name "*Test.csproj" \))
+          if [ "${#test_projects[@]}" -eq 0 ]; then
+            echo "No test projects found."
+            exit 0
+          fi
+
+          for project in "${test_projects[@]}"; do
+            dotnet test "$project" --configuration Release
+          done
 
   docker_image:
     name: Build and Push Docker Image
@@ -91,26 +108,82 @@ jobs:
         run: |
           SSH_PORT=${SSH_PORT:-22}
 
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
-            set -e
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "APP_ROOT='/home/$SSH_USER/apps/powerle' IMAGE='${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}' CONTAINER_NAME='powerle' HOST_PORT='${{ env.HOST_PORT }}' CONTAINER_PORT='${{ env.CONTAINER_PORT }}' SMOKE_PORT='${{ env.SMOKE_PORT }}' GHCR_USER='${{ github.actor }}' bash -s" <<'REMOTE'
+          set -euo pipefail
 
-            APP_ROOT=/home/$SSH_USER/apps/powerle
-            mkdir -p \$APP_ROOT
+          CANDIDATE_NAME="${CONTAINER_NAME}-candidate"
 
-            echo 'Logging in to GHCR...'
-            echo '${{ secrets.GITHUB_TOKEN }}' | sudo docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          wait_for_http() {
+            local url="$1"
+            for attempt in $(seq 1 30); do
+              if command -v curl >/dev/null 2>&1; then
+                curl -fsS --max-time 5 "$url" >/dev/null && return 0
+              elif command -v wget >/dev/null 2>&1; then
+                wget -q --timeout=5 --tries=1 -O /dev/null "$url" && return 0
+              else
+                echo "curl or wget is required for deploy health checks."
+                return 1
+              fi
+              sleep 2
+            done
+            return 1
+          }
 
-            echo 'Pulling latest image...'
-            sudo docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          cleanup_candidate() {
+            sudo docker rm -f "$CANDIDATE_NAME" >/dev/null 2>&1 || true
+          }
 
-            echo 'Stopping and removing existing container...'
-            sudo docker rm -f powerle || true
+          run_app() {
+            local name="$1"
+            local port="$2"
+            local image="$3"
+            local restart_policy="$4"
 
-            echo 'Starting new container...'
             sudo docker run -d \
-              --name powerle \
-              --restart=always \
-              -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
-              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-          "
+              --name "$name" \
+              --restart="$restart_policy" \
+              -p "127.0.0.1:${port}:${CONTAINER_PORT}" \
+              "$image"
+          }
+
+          mkdir -p "$APP_ROOT"
+
+          echo "Logging in to GHCR..."
+          echo '${{ secrets.GITHUB_TOKEN }}' | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+          echo "Pulling image ${IMAGE}..."
+          sudo docker pull "$IMAGE"
+
+          echo "Smoke-testing candidate container..."
+          cleanup_candidate
+          trap cleanup_candidate EXIT
+          run_app "$CANDIDATE_NAME" "$SMOKE_PORT" "$IMAGE" "no"
+          if ! wait_for_http "http://127.0.0.1:${SMOKE_PORT}/"; then
+            sudo docker logs "$CANDIDATE_NAME" || true
+            exit 1
+          fi
+          cleanup_candidate
+          trap - EXIT
+
+          PREVIOUS_IMAGE="$(sudo docker inspect --format='{{.Config.Image}}' "$CONTAINER_NAME" 2>/dev/null || true)"
+
+          echo "Replacing production container..."
+          sudo docker rm -f "$CONTAINER_NAME" || true
+          run_app "$CONTAINER_NAME" "$HOST_PORT" "$IMAGE" "always"
+
+          if ! wait_for_http "http://127.0.0.1:${HOST_PORT}/"; then
+            sudo docker logs "$CONTAINER_NAME" || true
+
+            if [ -n "$PREVIOUS_IMAGE" ]; then
+              echo "New container failed health check. Rolling back to ${PREVIOUS_IMAGE}..."
+              sudo docker rm -f "$CONTAINER_NAME" || true
+              run_app "$CONTAINER_NAME" "$HOST_PORT" "$PREVIOUS_IMAGE" "always"
+            fi
+
+            exit 1
+          fi
+
+          echo "Deployment completed successfully."
+          REMOTE
         shell: bash
