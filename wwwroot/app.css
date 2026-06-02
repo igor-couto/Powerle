@@ -154,9 +154,14 @@ a { color: var(--accent); }
 .guess-continent.same { color: var(--good); }
 
 /* Input */
-.guess-input { display: flex; gap: 0.5rem; }
+.guess-input {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
 .guess-input input {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
     background: var(--card-2);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -166,6 +171,7 @@ a { color: var(--accent); }
 }
 .guess-input input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
 .btn-guess {
+    flex: 0 0 auto;
     background: var(--accent);
     color: #1a1a1a;
     border: none;
