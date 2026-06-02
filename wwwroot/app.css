@@ -94,6 +94,7 @@ a { color: var(--accent); }
 
 .game-header { text-align: center; }
 .game-header h1 { margin: 0; font-size: 2rem; letter-spacing: 0.5px; }
+.game-header h1:focus { outline: none; box-shadow: none; }
 .tagline { margin: 0.35rem 0 1rem; color: var(--muted); font-size: 0.95rem; }
 
 /* Chart */
