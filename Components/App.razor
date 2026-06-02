@@ -1,4 +1,6 @@
-﻿<!DOCTYPE html>
+﻿@inject IConfiguration Configuration
+
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -24,12 +26,17 @@
     <link rel="stylesheet" href="@Assets["EnergySourceGame.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
+    @if (Configuration.GetValue<bool>("AdSense:Enabled") && !string.IsNullOrWhiteSpace(Configuration.GetValue<string>("AdSense:ClientId")))
+    {
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=@Configuration["AdSense:ClientId"]" crossorigin="anonymous"></script>
+    }
     <HeadOutlet />
 </head>
 
 <body>
     <Routes />
     <ReconnectModal />
+    <script src="@Assets["analytics.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

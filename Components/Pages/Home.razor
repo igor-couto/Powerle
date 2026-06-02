@@ -5,6 +5,9 @@
 @inject CountryRepository Repo
 @inject ProtectedLocalStorage Store
 @inject IJSRuntime JS
+@inject AnalyticsService Analytics
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
 @implements IDisposable
 
 <PageTitle>Powerle — guess the country by its energy mix</PageTitle>
@@ -93,6 +96,18 @@
         <p class="loading">Loading today's puzzle…</p>
     }
 
+    @if (_adSenseEnabled && !string.IsNullOrWhiteSpace(_adSenseSlot))
+    {
+        <div class="ad-container text-center my-4">
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="@Configuration["AdSense:ClientId"]"
+                 data-ad-slot="@_adSenseSlot"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+        </div>
+    }
+
     <footer class="game-footer">
         <p>Energy figures are approximate shares of electricity generation, for guessing fun, not official statistics.</p>
     </footer>
@@ -113,6 +128,8 @@
     private bool _finished;
     private bool _loaded;
     private bool _showHelp;
+    private bool _adSenseEnabled;
+    private string? _adSenseSlot;
     private string _theme = "dark";
     private string? _error;
     private string _shareLabel = "Share result";
@@ -124,6 +141,8 @@
         _day = Puzzle.TodayUtc;
         _target = Puzzle.Today;
         _untilNext = DailyPuzzleService.TimeUntilNextPuzzle();
+        _adSenseEnabled = Configuration.GetValue<bool>("AdSense:Enabled");
+        _adSenseSlot = Configuration["AdSense:SlotId"];
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -135,11 +154,24 @@
         await MaybeShowHelpAsync();
         _theme = await GetCurrentThemeAsync();
         _loaded = true;
+
+        await Analytics.InitializeAsync();
+        await Analytics.TrackPageViewAsync("Home", new Uri(Navigation.Uri).PathAndQuery);
+
+        if (_adSenseEnabled && !string.IsNullOrWhiteSpace(_adSenseSlot))
+        {
+            await JS.InvokeVoidAsync("powerleAnalytics.renderAdSense");
+        }
+
         _timer = new Timer(OnTick, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
         StateHasChanged();
     }
 
-    private void OpenHelp() => _showHelp = true;
+    private async Task OpenHelp()
+    {
+        _showHelp = true;
+        await Analytics.TrackEventAsync("help_opened");
+    }
 
     private void CloseHelp() => _showHelp = false;
 
@@ -164,6 +196,7 @@
         {
             await JS.InvokeVoidAsync("document.documentElement.setAttribute", "data-theme", _theme);
             await JS.InvokeVoidAsync("localStorage.setItem", "powerle-theme", _theme);
+            await Analytics.TrackEventAsync("theme_toggled", new { theme = _theme });
         }
         catch
         {
@@ -206,11 +239,13 @@
         if (guess is null)
         {
             _error = $"\"{name}\" isn't in the country list.";
+            await Analytics.TrackEventAsync("guess_invalid", new { input = name });
             return;
         }
         if (_guesses.Any(g => string.Equals(g.CountryName, guess.Name, StringComparison.OrdinalIgnoreCase)))
         {
             _error = "You already guessed that one.";
+            await Analytics.TrackEventAsync("guess_duplicate", new { input = name });
             return;
         }
 
@@ -222,12 +257,15 @@
         {
             _won = true;
             _finished = true;
+            await Analytics.TrackEventAsync("game_finished", new { result = "win", guesses = _guesses.Count });
         }
         else if (_guesses.Count >= MaxGuesses)
         {
             _finished = true;
+            await Analytics.TrackEventAsync("game_finished", new { result = "lose", guesses = _guesses.Count });
         }
 
+        await Analytics.TrackEventAsync("guess_submitted", new { country = guess.Name, correct = result.IsCorrect, guessCount = _guesses.Count, finished = _finished });
         await SaveProgressAsync();
     }
 
@@ -237,10 +275,12 @@
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", ShareText());
             _shareLabel = "Copied!";
+            await Analytics.TrackEventAsync("share_result", new { success = true, guesses = _guesses.Count });
         }
         catch
         {
             _shareLabel = "Copy failed — select the text below";
+            await Analytics.TrackEventAsync("share_result", new { success = false });
         }
     }
 

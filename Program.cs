@@ -19,6 +19,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddSingleton<CountryRepository>();
 builder.Services.AddSingleton<DailyPuzzleService>();
 builder.Services.AddScoped<ProtectedLocalStorage>();
+builder.Services.AddScoped<AnalyticsService>();
 
 var app = builder.Build();
 

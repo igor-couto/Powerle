@@ -105,6 +105,11 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
+          ADSENSE_ENABLED: ${{ secrets.ADSENSE_ENABLED }}
+          ADSENSE_CLIENT_ID: ${{ secrets.ADSENSE_CLIENT_ID }}
+          ADSENSE_SLOT_ID: ${{ secrets.ADSENSE_SLOT_ID }}
+          ANALYTICS_ENABLED: ${{ secrets.ANALYTICS_ENABLED }}
+          ANALYTICS_MEASUREMENT_ID: ${{ secrets.ANALYTICS_MEASUREMENT_ID }}
         run: |
           SSH_PORT=${SSH_PORT:-22}
 
@@ -144,6 +149,11 @@ jobs:
               --name "$name" \
               --restart="$restart_policy" \
               -p "127.0.0.1:${port}:${CONTAINER_PORT}" \
+              -e "AdSense__Enabled=${ADSENSE_ENABLED:-false}" \
+              -e "AdSense__ClientId=${ADSENSE_CLIENT_ID:-}" \
+              -e "AdSense__SlotId=${ADSENSE_SLOT_ID:-}" \
+              -e "Analytics__Enabled=${ANALYTICS_ENABLED:-false}" \
+              -e "Analytics__MeasurementId=${ANALYTICS_MEASUREMENT_ID:-}" \
               "$image"
           }
 
